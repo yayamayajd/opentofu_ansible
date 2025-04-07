@@ -4,7 +4,7 @@
 This project was originally developed as part of a group assignment at school.
 This repository contains my own personal version and implementation of that project.
 here is the result:
-![the result of the project](/opentofu_ansible/images/results.png)
+![the result of the project](/images/results.png)
 
 
 
