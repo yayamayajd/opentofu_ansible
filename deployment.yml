@@ -1,0 +1,148 @@
+
+#install for webs:
+#        1,python3, pip3
+#        2,pip install flask
+#        3,upload flask app code
+#        4,configure systemd to keep app run backgroud
+
+#install for db:
+#         1,install postgresql
+#         2, creat db and ub user
+#         3,open port 5432 for web_sg
+- name: Deploy PostgreSQL 16 manually (no systemd)
+  hosts: db
+  become: yes
+  vars:
+    pg_data_dir: /var/lib/pgsql/16/data
+    pg_ctl_path: /usr/pgsql-16/bin/pg_ctl
+    pg_setup_path: /usr/pgsql-16/bin/postgresql-16-setup
+    db_name: postgres  
+
+  tasks:
+
+    - name: Add PostgreSQL 16 YUM repo
+      yum_repository:
+        name: pgdg16
+        description: PostgreSQL 16 repo
+        baseurl: https://download.postgresql.org/pub/repos/yum/16/redhat/rhel-7-x86_64
+        gpgcheck: no
+        enabled: yes
+
+    - name: Install PostgreSQL 16
+      yum:
+        name:
+          - postgresql16
+          - postgresql16-server
+        state: present
+
+    - name: Initialize PostgreSQL 16 (if not already)
+      command: "{{ pg_setup_path }} initdb"
+      args:
+        creates: "{{ pg_data_dir }}/PG_VERSION"
+
+    - name: Start PostgreSQL using pg_ctl (if not already running)
+      shell: |
+        su - postgres -c "
+          {{ pg_ctl_path }} status -D {{ pg_data_dir }} > /dev/null 2>&1
+          if [ $? -ne 0 ]; then
+            {{ pg_ctl_path }} -D {{ pg_data_dir }} -l {{ pg_data_dir }}/logfile start
+          else
+            echo '[INFO] PostgreSQL is already running.'
+          fi
+        "
+      args:
+        executable: /bin/bash
+
+    - name: Create visitors table in database
+      shell: |
+        echo "
+        CREATE TABLE IF NOT EXISTS visitors (
+            id SERIAL PRIMARY KEY,
+            name TEXT NOT NULL,
+            timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            instance_name TEXT
+        );
+        " | sudo -u postgres psql -d {{ db_name }}
+      args:
+        executable: /bin/bash
+
+      
+- name: Configure Flask web servers
+  hosts: web
+  become: true
+  vars:
+    flask_app_dir: /opt/flask_app
+    gunicorn_service: gunicorn_flask
+  tasks:
+
+    - name: Install Python 3 and pip
+      dnf:
+        name:
+          - python3
+          - python3-pip
+        state: present
+
+    - name: Install Python packages for Flask
+      pip:
+        name:
+          - flask
+          - gunicorn
+          - psycopg2-binary
+          - python-dotenv
+
+    - name: Create Flask app directory
+      file:
+        path: "{{ flask_app_dir }}"
+        state: directory
+        mode: '0755'
+
+    - name: Upload Flask app
+      copy:
+        src: ./app.py
+        dest: "{{ flask_app_dir }}/"
+        mode: '0755'
+
+
+    - name: Create .env file for Flask app
+      copy:
+        dest: /opt/flask_app/.env
+        content: |
+          DB_NAME=postgres
+          DB_USER=postgres
+          DB_PASSWORD=password
+          DB_HOST={{ hostvars[groups['db'][0]]['ansible_host'] }}
+          DB_PORT=5432
+          INSTANCE_NAME={{ inventory_hostname }}
+        mode: '0644'
+
+    - name: Configure Gunicorn systemd service
+      copy:
+        dest: /etc/systemd/system/{{ gunicorn_service }}.service
+        content: |
+          [Unit]
+          Description=Gunicorn instance to serve Flask app
+          After=network.target
+
+          [Service]
+          User=ec2-user
+          Group=ec2-user
+          WorkingDirectory={{ flask_app_dir }}
+          EnvironmentFile={{ flask_app_dir }}/.env
+          ExecStart=/usr/local/bin/gunicorn --workers 3 --bind 0.0.0.0:5000 app:app
+          Restart=always
+
+          [Install]
+          WantedBy=multi-user.target
+      notify:
+        - Reload systemd
+        - Restart gunicorn
+
+  handlers:
+    - name: Reload systemd
+      command: systemctl daemon-reexec
+
+    - name: Restart gunicorn
+      systemd:
+        name: "{{ gunicorn_service }}"
+        enabled: yes
+        state: restarted

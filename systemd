@@ -1,0 +1,12 @@
+[Unit]
+Description=Gunicorn Flask Service
+After=network.target
+
+[Service]
+User=ec2-user
+WorkingDirectory=/opt/flask_app
+ExecStart=/usr/local/bin/gunicorn --workers 4 --bind 0.0.0.0:5000 app:app
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
