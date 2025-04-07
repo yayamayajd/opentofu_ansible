@@ -98,14 +98,19 @@ ansible-playbook -i inventory.yaml site.yaml
 **problems and solutions** 
 
 ***About alb：*** 
+
 One of the biggest issues was that ALB need to be created, but could not.  Because there were only 1 pub-sub from the beginning(accoring to the misslead of the compoment-list from school).
 
 After the research, the conclusion came: AWS ALB requires at least two subnets in different Availability Zones. This is not just a best practice—it's a strict requirement. The subnets act as entry points for the ALB and ensure HA in the event of an AZ failure. Subnets in AWS are inherently bound to a single Availability Zone and cannot span across multiple zones. As a result, even if you have two EC2 instances in different AZs, they must reside in separate subnets. You cannot create one subnet across multiple AZs. This is why the ALB must be associated with two or more distinct subnets, each in a different AZ.
 
 source from AWS official documents:
+
 https://docs.aws.amazon.com/elasticloadbalancing/latest/application/application-load-balancers.html#subnets
 
-also according to https://docs.aws.amazon.com/vpc/latest/userguide/how-it-works.html
+also according to:
+
+https://docs.aws.amazon.com/vpc/latest/userguide/how-it-works.html
+
 "each subnet must reside entirely within one Availability Zone and cannot span zones."
 
 
