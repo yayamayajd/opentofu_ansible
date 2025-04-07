@@ -17,11 +17,18 @@ and automate configuration and installation using Ansible.
 
 
 Three EC2 instances: two for web servers and one for the database.
+
 One load balancer: to distribute traffic between the web server instances.
+
 Three subnets: two public subnets for the web servers, and one private subnet for the database.
+
 Security groups and IAM roles/policy documents: to restrict access based on best practices.
+
 Ansible configuration: for installing and configuring both the web servers and the database.
+
 Launch script: to create, install, and configure the infrastructure so that the web application is up and running and accessible.
+
+*The flask-app code is offered from the teacher
 
 
 
