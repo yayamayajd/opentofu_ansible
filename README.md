@@ -1,6 +1,9 @@
 # About this project
 
 
+*** More information and troubleshooting notes are currently being organized. Stay tuned — updates coming soon! ***
+
+
 This project was originally developed as part of a group assignment at school.
 This repository contains my own personal version and implementation of that project.
 here is the result:
